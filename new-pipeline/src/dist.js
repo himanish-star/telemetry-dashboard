@@ -10,6 +10,7 @@ var gAxesList;
 var gAxesSelectors;
 var gNoneKey = "__none__";
 var gChangePending = false;
+var gChangePendingTimeout = null;
 const kDefaultFilterChangeTimeoutDelay = 3000;
 
 indicate("Initializing Telemetry...");
@@ -19,7 +20,7 @@ $(function () {
     let btnGroup = $('.btn-group');
     btnGroup.on('hide.bs.dropdown', function () {
       if(gChangePending) {
-        setFilterChangeTimeout(function () {
+        setFilterChangeTimeout(false, function () {
           $('#measure')
             .trigger('change');
         }, kDefaultFilterChangeTimeoutDelay);
@@ -27,7 +28,10 @@ $(function () {
     });
     btnGroup.on('click', function () {
       if(gChangePending) {
-        clearTimeout(gFilterChangeTimeout);
+        setTimeout(function () {
+          clearTimeout(gChangePendingTimeout);
+          clearTimeout(gFilterChangeTimeout);
+        }, 100);
       }
     });
     gFilters = {
@@ -159,7 +163,7 @@ $(function () {
 
       $("#channel-version")
         .change(function () {
-          setFilterChangeTimeout(function () {
+          setFilterChangeTimeout(true, function () {
             updateOptions(function () {
               $("#measure")
                 .trigger("change");
@@ -182,7 +186,7 @@ $(function () {
           if (gFilterChangeTimeout !== null) {
             clearTimeout(gFilterChangeTimeout);
           }
-          setFilterChangeTimeout(function () { // Debounce the changes to prevent rapid filter changes from causing too many updates
+          setFilterChangeTimeout(true, function () { // Debounce the changes to prevent rapid filter changes from causing too many updates
             if (["filter-product", "filter-os"].indexOf($this
                 .attr("id")) >= 0) { // Only apply the select all change to the product and OS selector
               // If options (but not all options) were deselected when previously all options were selected, invert selection to include only those deselected
@@ -1904,10 +1908,18 @@ function isHistogramsListKeyed(histogramsList) {
   return histogramsList.some(entry => entry.title !== "");
 }
 
-function setFilterChangeTimeout(timeoutFunction, timeoutDelay) {
+function setFilterChangeTimeout(check, timeoutFunction, timeoutDelay) {
   gChangePending = true;
-  gFilterChangeTimeout = setTimeout(() => {
-    timeoutFunction();
-    gChangePending = false;
-  }, timeoutDelay);
+  if(check){
+    gFilterChangeTimeout = setTimeout(() => {
+      timeoutFunction();
+      gChangePending = false;
+    }, timeoutDelay);
+  } else {
+    gChangePendingTimeout = setTimeout(() => {
+      timeoutFunction();
+      gChangePending = false;
+    }, timeoutDelay);
+  }
+
 }
